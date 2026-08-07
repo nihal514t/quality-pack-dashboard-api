@@ -9,7 +9,6 @@ const SHEETS = {
 const SHEET_NAME = "API";
 
 async function readSheet(spreadsheetId) {
-
     const client = await auth.getClient();
 
     const sheets = google.sheets({
@@ -30,11 +29,11 @@ async function readSheet(spreadsheetId) {
 
         if (row.length < 2) continue;
 
-        const key = row[0];
+        const key = row[0].trim();
         const value = row[1];
 
         const number = Number(
-            value.toString().replace(/[₹,x%]/g, "")
+            value.toString().replace(/[₹,%x]/g, "").replace(/,/g, "")
         );
 
         result[key] = isNaN(number) ? value : number;
@@ -45,39 +44,49 @@ async function readSheet(spreadsheetId) {
 
 async function getDashboardData() {
 
-    const quality = await readSheet(
-        SHEETS.quality
-    );
+    const quality = await readSheet(SHEETS.quality);
+    const fml = await readSheet(SHEETS.fml);
 
-    const fml = await readSheet(
-        SHEETS.fml
-    );
+    const overallNetSales =
+        (quality.NetSales || 0) +
+        (fml.NetSales || 0);
+
+    const overallExpenses =
+        (quality.Expenses || 0) +
+        (fml.Expenses || 0);
+
+    const overallProfit =
+        (quality.Profit || 0) +
+        (fml.Profit || 0);
+
+    const overallOrders =
+        (quality.Orders || 0) +
+        (fml.Orders || 0);
+
+    const overallROAS =
+        overallExpenses === 0
+            ? 0
+            : Number(
+                  (overallNetSales / overallExpenses).toFixed(2)
+              );
+
+    const overallAvgSales =
+        overallOrders === 0
+            ? 0
+            : Number(
+                  (overallNetSales / overallOrders).toFixed(2)
+              );
 
     return {
         quality,
         fml,
         overall: {
-            revenue:
-                (quality.Revenue || 0) +
-                (fml.Revenue || 0),
-
-            profit:
-                (quality.Profit || 0) +
-                (fml.Profit || 0),
-
-            orders:
-                (quality.Orders || 0) +
-                (fml.Orders || 0),
-
-            adSpend:
-                (quality["Ad Spend"] || 0) +
-                (fml["Ad Spend"] || 0),
-
-            roas:
-                (
-                    ((quality.ROAS || 0) +
-                        (fml.ROAS || 0)) / 2
-                ).toFixed(2)
+            NetSales: overallNetSales,
+            Expenses: overallExpenses,
+            Profit: overallProfit,
+            Orders: overallOrders,
+            ROAS: overallROAS,
+            AvgSales: overallAvgSales
         }
     };
 }
